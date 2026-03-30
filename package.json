@@ -1,0 +1,25 @@
+{
+  "name": "civic",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "body-parser": "^2.2.0",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "multer": "^2.0.2",
+    "node-adodb": "^5.0.3",
+    "sqlite3": "^5.1.7",
+    "twilio": "^5.10.0",
+    "xlsx": "^0.18.5",
+    "xlsx-style": "^0.8.13"
+  },
+  "devDependencies": {}
+}

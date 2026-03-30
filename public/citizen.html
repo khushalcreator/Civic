@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="citizen_dashboard">Citizen Dashboard</title>
+  <link href="css/variables.css" rel="stylesheet">
+  <link href="css/style.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="lang.js"></script>
+  <style>
+    #map {
+      height: 450px;
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-md);
+      z-index: 10;
+    }
+
+    .report-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: var(--radius-md);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="d-flex align-center gap-2">
+      <div
+        style="background: var(--gradient-primary); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
+        <i class="bi bi-people-fill"></i>
+      </div>
+      <h2 class="mb-0" style="margin:0; font-size: 1.25rem;"><span data-i18n="citizen_heading">Citizen Portal</span>
+      </h2>
+    </div>
+    <div class="d-flex align-center gap-2">
+      <select id="langSwitcher" class="form-select w-auto" style="padding: 0.4rem 2rem 0.4rem 1rem;">
+        <option value="en">🇬🇧 English</option>
+        <option value="hi">🇮🇳 हिन्दी</option>
+        <option value="te">🇮🇳 తెలుగు</option>
+        <option value="ta">🇮🇳 தமிழ்</option>
+      </select>
+      <a href="/citizen/logout" class="btn btn-danger btn-sm" style="padding: 0.4rem 0.8rem;">
+        <i class="bi bi-box-arrow-right"></i> <span data-i18n="logout">Logout</span>
+      </a>
+    </div>
+  </nav>
+
+  <div class="container animate-fade-in">
+
+    <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-xl);">
+
+      <!-- Left Column: Map & Form -->
+      <div class="d-flex flex-column gap-4">
+
+        <!-- Map Section -->
+        <div>
+          <h4 class="mb-2"><i class="bi bi-map"></i> <span data-i18n="report_map">Report Map</span></h4>
+          <div id="map"></div>
+        </div>
+
+        <!-- Report Form -->
+        <div class="card">
+          <h4 class="mb-4" style="color: var(--primary);"><i class="bi bi-plus-circle-fill"></i> <span
+              data-i18n="report_issue">Report an Issue</span></h4>
+          <form id="reportForm" enctype="multipart/form-data">
+
+            <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+              <div class="form-group">
+                <label class="form-label" data-i18n="category">Category</label>
+                <select name="category" class="form-select" required>
+                  <option value="Road" data-i18n="cat_road">Road</option>
+                  <option value="Sanitation" data-i18n="cat_sanitation">Sanitation</option>
+                  <option value="Streetlight" data-i18n="cat_streetlight">Streetlight</option>
+                  <option value="Water/Drainage" data-i18n="cat_water">Water/Drainage</option>
+                  <option value="Environment" data-i18n="cat_environment">Environment</option>
+                  <option value="Electricity" data-i18n="cat_electricity">Electricity</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" data-i18n="urgency">Urgency (1-5)</label>
+                <input type="number" name="urgency" class="form-control" min="1" max="5" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" data-i18n="description">Description</label>
+              <textarea name="text" class="form-control" rows="3" required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" data-i18n="media">Upload Image/Video</label>
+              <input type="file" name="media" class="form-control">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">📍 <span data-i18n="location">Location</span></label>
+              <div class="d-flex gap-2">
+                <input type="text" name="latitude" id="lat" class="form-control" placeholder="Lat" readonly>
+                <input type="text" name="longitude" id="lon" class="form-control" placeholder="Lon" readonly>
+                <button type="button" class="btn btn-secondary" onclick="getLocation()" data-i18n="use_location"
+                  style="white-space: nowrap;">
+                  <i class="bi bi-geo-alt-fill"></i> Locate
+                </button>
+              </div>
+            </div>
+
+            <button class="btn btn-primary btn-block mt-2">
+              <i class="bi bi-send-fill"></i> <span data-i18n="submit">Submit Report</span>
+            </button>
+          </form>
+        </div>
+
+      </div>
+
+      <!-- Right Column: My Reports -->
+      <div>
+        <h4 class="mb-4"><i class="bi bi-clipboard-data"></i> <span data-i18n="my_reports">My Reports</span></h4>
+        <div id="reportsList" class="d-flex flex-column gap-4"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Leaflet + Heatmap -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+  <script>
+    // Init Map
+    const map = L.map('map').setView([20.5937, 78.9629], 5); // India center
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    }).addTo(map);
+    let heatLayer;
+
+    function addReportsToMap(reports) {
+      if (heatLayer) map.removeLayer(heatLayer);
+      const heatPoints = [];
+      reports.forEach(r => {
+        if (r.latitude && r.longitude) {
+          const lat = parseFloat(r.latitude), lon = parseFloat(r.longitude);
+          // Marker pin
+          L.marker([lat, lon]).addTo(map)
+            .bindPopup(`<b>${r.category}</b><br>${r.text}<br>Status: ${r.status}`);
+          // Heatmap (urgency weighted)
+          heatPoints.push([lat, lon, r.urgency || 1]);
+        }
+      });
+      heatLayer = L.heatLayer(heatPoints, { radius: 25 }).addTo(map);
+    }
+
+    // Get current location
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(pos => {
+          document.getElementById("lat").value = pos.coords.latitude;
+          document.getElementById("lon").value = pos.coords.longitude;
+          map.setView([pos.coords.latitude, pos.coords.longitude], 13);
+
+          // Add a temporary marker for current location
+          L.marker([pos.coords.latitude, pos.coords.longitude]).addTo(map)
+            .bindPopup("You are here").openPopup();
+        });
+      }
+    }
+
+    // Submit report
+    document.getElementById("reportForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      await fetch("/report", { method: "POST", body: formData });
+      e.target.reset();
+      loadReports();
+    });
+
+    // Load reports
+    async function loadReports() {
+      const res = await fetch("/reports");
+      const reports = await res.json();
+      addReportsToMap(reports);
+      const list = document.getElementById("reportsList");
+      list.innerHTML = "";
+      reports.forEach(r => {
+        const div = document.createElement("div");
+        div.className = "card report-card";
+
+        let statusBadge = "bg-secondary";
+        if (r.status === "resolved") statusBadge = "bg-success";
+        if (r.status === "in-progress") statusBadge = "bg-warning";
+
+        div.innerHTML = `
+          <div class="d-flex justify-between align-center mb-2">
+            <h5 class="mb-0 fw-bold" style="color: var(--primary);">#${r.id} - ${r.category}</h5>
+            <span class="badge ${statusBadge}">${r.status}</span>
+          </div>
+          <p class="text-muted small mb-2"><i class="bi bi-clock"></i> Posted recently</p>
+          <p class="mb-3">${r.text}</p>
+          ${r.media ? `<div class="mb-3"><img src="${r.media}" alt="Report Image"></div>` : ""}
+          
+          <div class="d-flex justify-between align-center pt-3 border-top" style="border-color: var(--border-color)!important;">
+            <div class="d-flex align-center gap-2">
+              <span class="badge bg-danger">Urgency ${r.urgency}</span>
+            </div>
+            <button onclick="upvote(${r.id})" class="btn btn-secondary" style="padding: 0.25rem 0.75rem; font-size: 0.9rem;">
+              <i class="bi bi-hand-thumbs-up"></i> ${r.upvotes} <span data-i18n="upvote">Upvote</span>
+            </button>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+
+      // Update translations for dynamically added content
+      const event = new Event('change');
+      const langSwitcher = document.getElementById("langSwitcher");
+      if (langSwitcher) langSwitcher.dispatchEvent(event);
+    }
+
+    async function upvote(id) {
+      await fetch(`/report/${id}/upvote`, { method: "POST" });
+      loadReports();
+    }
+
+    loadReports();
+  </script>
+</body>
+
+</html>
