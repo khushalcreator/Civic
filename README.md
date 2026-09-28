@@ -1,8 +1,5 @@
 <div align="center">
   
-  <!-- Add your logo here -->
-  <img src="https://raw.githubusercontent.com/khushalcreator/Civic/main/docs/assets/logo.png" alt="Civic Logo" width="200" />
-
   <h1>🏛️ Civic</h1>
 
   <p>
